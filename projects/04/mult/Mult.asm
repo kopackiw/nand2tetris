@@ -9,4 +9,52 @@
 // This program only needs to handle arguments that satisfy
 // R0 >= 0, R1 >= 0, and R0*R1 < 32768.
 
-// Put your code here.
+(START)
+
+(INIT_ITERATOR)
+    @R0
+    D=M
+    @iterator
+    M=D
+
+(INIT_DATA)
+    @R1
+    D=M
+    @data
+    M=D
+
+(INIT_ACCUMULATOR)
+    @accumulator
+    M=0
+
+(ITERATE)
+(CHECK_ITERATOR_BOUNDS)
+    @iterator
+    D=M
+    @END_ITERATION
+    D;JLE
+
+(INCREMENT_ACCUMULATOR)
+    @data
+    D=M
+    @accumulator
+    M=M+D
+
+(DECREMENT_ITERATOR)
+    @iterator
+    M=M-1
+
+(LOOP_ITERATION)
+    @ITERATE
+    0;JMP
+(END_ITERATION)
+
+(SET_VALUE)
+    @accumulator
+    D=M
+    @R2
+    M=D
+
+(END)
+    @END
+    0;JMP
