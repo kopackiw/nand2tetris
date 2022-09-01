@@ -33,11 +33,52 @@ CHIP CPU {
                          // program (reset==1) or continue executing
                          // the current program (reset==0).
 
-    OUT outM[16],        // M value output
-        writeM,          // Write to M? 
-        addressM[15],    // Address in data memory (of M)
+    OUT outM[16],        // new M value (any if writeM == 0)
+        writeM,          // write M in A?
+        addressM[15],    // A
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // Calculations
+    Not(in=instruction[15], out=isOpcodeA);
+    Not(in=isOpcodeA, out=isOpcodeC);
+
+    // writeM
+    And(a=isOpcodeC, b=instruction[3], out=writeM);
+
+    // Jumps
+    And(a=isOpcodeC, b=instruction[2], out=isJumpOnLowerZeroActive);
+    And(a=isJumpOnLowerZeroActive, b=aluNg, out=shouldJumpOnLower);
+    And(a=isOpcodeC, b=instruction[1], out=isJumpOnEqualZeroActive);
+    And(a=isJumpOnEqualZeroActive, b=aluZr, out=shouldJumpOnEqual);
+    And(a=isOpcodeC, b=instruction[0], out=isJumpOnGreaterZeroActive);
+    And(a=isJumpOnGreaterZeroActive, b=isPositive, out=shouldJumpOnGreater);
+    Not(in=aluNg, out=nonNg);
+    Not(in=aluZr, out=nonZr);
+    And(a=nonNg, b=nonZr, out=isPositive);
+    Or(a=shouldJumpOnLower, b=shouldJumpOnEqual, out=shouldJump1);
+    Or(a=shouldJump1, b=shouldJumpOnGreater, out=shouldJump);
+    
+    // Register A
+    And(a=isOpcodeC, b=instruction[5], out=shouldOverwriteAwithOpcodeC);
+    Or(a=isOpcodeA, b=shouldOverwriteAwithOpcodeC, out=shouldOverwriteA);
+    Mux16(a=instruction, b=aluOut, sel=shouldOverwriteAwithOpcodeC, out=newA);
+    ARegister(in=newA, load=shouldOverwriteA, out=prevA, out[0..14]=addressM);
+
+    // Register D
+    And(a=isOpcodeC, b=instruction[4], out=shouldOverwriteD);
+    DRegister(in=aluOut, load=shouldOverwriteD, out=prevD);    
+
+    // PC
+    Not(in=reset, out=continue); // hierarchy: reset > load > increment
+    PC(in=prevA, load=shouldJump, inc=continue, reset=reset, out[0..14]=pc);
+
+    // ALU
+    Mux16(a=prevA, b=inM, sel=instruction[12], out=memoryInput);
+    ALU(
+        x=prevD, y=memoryInput,
+        zx=instruction[11], nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7], no=instruction[6],
+        out=aluOut, out=outM, zr=aluZr, ng=aluNg
+    );
 }
